@@ -9,7 +9,10 @@ echo "▶ Searching for built app..."
 ALL=$(find ~/Library/Developer/Xcode/DerivedData -name "$APP_NAME.app" 2>/dev/null)
 echo "Found: $ALL"
 
-APP_PATH=$(echo "$ALL" | grep "maccatalyst" | grep -v ".XCInstall" | head -1)
+APP_PATH=$(echo "$ALL" | grep "maccatalyst" | grep -v ".XCInstall" | grep -v "Index.noindex" | grep "Release" | head -1)
+if [ -z "$APP_PATH" ]; then
+  APP_PATH=$(echo "$ALL" | grep "maccatalyst" | grep -v ".XCInstall" | grep -v "Index.noindex" | head -1)
+fi
 if [ -z "$APP_PATH" ]; then
   APP_PATH=$(echo "$ALL" | grep -v ".XCInstall" | head -1)
 fi
