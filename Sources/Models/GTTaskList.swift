@@ -1,6 +1,6 @@
 import Foundation
 
-struct GTTaskList: Identifiable, Codable {
+struct GTTaskList: Identifiable, Codable, Hashable {
     let id: String
     var title: String
     var updated: String

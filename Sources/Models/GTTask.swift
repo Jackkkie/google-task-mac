@@ -8,6 +8,8 @@ struct GTTask: Identifiable, Codable {
     var due: String?
     var completed: String?
     var updated: String
+    var parent: String?
+    var position: String?
 
     enum Status: String, Codable {
         case needsAction = "needsAction"

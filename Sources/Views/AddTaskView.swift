@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AddTaskView: View {
     let onAdd: (String, String?, String?) async -> Void
+    var onCancel: (() -> Void)?
 
     @State private var title = ""
     @State private var notes = ""
@@ -9,6 +10,14 @@ struct AddTaskView: View {
     @State private var dueDate = Date()
     @State private var isAdding = false
     @Environment(\.dismiss) private var dismiss
+
+    private func close() {
+        if let onCancel {
+            onCancel()
+        } else {
+            dismiss()
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -30,7 +39,7 @@ struct AddTaskView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Cancel") { close() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
@@ -39,7 +48,7 @@ struct AddTaskView: View {
                             let iso = ISO8601DateFormatter()
                             let dueStr = hasDueDate ? iso.string(from: dueDate) : nil
                             await onAdd(title, notes.isEmpty ? nil : notes, dueStr)
-                            dismiss()
+                            close()
                         }
                     }
                     .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty || isAdding)

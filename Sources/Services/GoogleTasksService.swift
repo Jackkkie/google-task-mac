@@ -24,7 +24,9 @@ class GoogleTasksService {
             URLQueryItem(name: "maxResults", value: "100")
         ]
         let data = try await fetch(comps.url!, token: token)
-        return (try decode(TaskListResponse.self, from: data).items) ?? []
+        let tasks = (try decode(TaskListResponse.self, from: data).items) ?? []
+        // Sort by position to reflect move operations
+        return tasks.sorted { ($0.position ?? "") < ($1.position ?? "") }
     }
 
     func createTask(listId: String, title: String, notes: String? = nil, due: String? = nil, token: String) async throws -> GTTask {
@@ -57,12 +59,48 @@ class GoogleTasksService {
         _ = try await fetch(url, method: "DELETE", token: token)
     }
 
-    func moveTask(listId: String, taskId: String, previousTaskId: String?, token: String) async throws {
+    func moveTask(listId: String, taskId: String, previousTaskId: String?, parentId: String? = nil, token: String) async throws {
         var comps = URLComponents(string: "\(base)/lists/\(listId)/tasks/\(taskId)/move")!
+        var queryItems: [URLQueryItem] = []
         if let prev = previousTaskId {
-            comps.queryItems = [URLQueryItem(name: "previous", value: prev)]
+            queryItems.append(URLQueryItem(name: "previous", value: prev))
         }
+        if let parentId {
+            queryItems.append(URLQueryItem(name: "parent", value: parentId))
+        }
+        if !queryItems.isEmpty { comps.queryItems = queryItems }
+        #if DEBUG
+        print("[MOVE API] \(comps.url!.absoluteString)")
+        #endif
         _ = try await fetch(comps.url!, method: "POST", token: token)
+    }
+
+    // MARK: - Task List CRUD
+
+    func createTaskList(title: String, token: String) async throws -> GTTaskList {
+        let url = URL(string: "\(base)/users/@me/lists")!
+        let body: [String: Any] = ["title": title]
+        let data = try await fetch(url, method: "POST", body: body, token: token)
+        return try decode(GTTaskList.self, from: data)
+    }
+
+    func updateTaskList(listId: String, title: String, token: String) async throws -> GTTaskList {
+        let url = URL(string: "\(base)/users/@me/lists/\(listId)")!
+        let body: [String: Any] = ["title": title]
+        let data = try await fetch(url, method: "PATCH", body: body, token: token)
+        return try decode(GTTaskList.self, from: data)
+    }
+
+    func deleteTaskList(listId: String, token: String) async throws {
+        let url = URL(string: "\(base)/users/@me/lists/\(listId)")!
+        _ = try await fetch(url, method: "DELETE", token: token)
+    }
+
+    // MARK: - Clear Completed
+
+    func clearCompleted(listId: String, token: String) async throws {
+        let url = URL(string: "\(base)/lists/\(listId)/clear")!
+        _ = try await fetch(url, method: "POST", token: token)
     }
 
     // MARK: - Private
@@ -76,7 +114,12 @@ class GoogleTasksService {
 
         let (data, response) = try await URLSession.shared.data(for: req)
         guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
-            throw APIError.badResponse((response as? HTTPURLResponse)?.statusCode ?? 0)
+            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+            #if DEBUG
+            let body = String(data: data, encoding: .utf8) ?? "(no body)"
+            print("[API ERROR] \(method) \(url) → \(code): \(body)")
+            #endif
+            throw APIError.badResponse(code)
         }
         return data
     }
